@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Play, Pause, RotateCcw, Coffee } from "lucide-react";
+import { Play, Pause } from "lucide-react";
 import "./FocusTimer.css";
 
 const DEFAULT_WORK = 25 * 60;
@@ -35,7 +35,6 @@ const FocusTimer: React.FC = () => {
 
   const intervalRef = useRef<number | null>(null);
 
-  // Load persisted Focus Session state
   useEffect(() => {
     chrome.runtime.sendMessage({ action: "getFocusSessionState" }, (response) => {
       const saved = response?.state;
@@ -55,7 +54,6 @@ const FocusTimer: React.FC = () => {
     });
   }, []);
 
-  // Sync with external changes
   useEffect(() => {
     const handler = (
       changes: { [key: string]: chrome.storage.StorageChange },
@@ -93,7 +91,6 @@ const FocusTimer: React.FC = () => {
     return () => chrome.storage.onChanged.removeListener(handler);
   }, []);
 
-  // Countdown
   useEffect(() => {
     if (!isRunning) return;
     intervalRef.current = setInterval(() => {
@@ -156,13 +153,10 @@ const FocusTimer: React.FC = () => {
   return (
     <div className="focus-timer-container">
       <div className="focus-timer-content">
-
         {!started ? (
-          // ─── SETUP VIEW ───────────────────────────────────────────────────
           <div className="setup-view">
             <h2 className="setup-title">Focus Session</h2>
 
-            {/* Task input */}
             <div className="task-input-container">
               <label className="input-label">What are you working on?</label>
               <input
@@ -175,7 +169,6 @@ const FocusTimer: React.FC = () => {
               />
             </div>
 
-            {/* Work duration presets */}
             <div className="duration-section">
               <label className="input-label">Work Duration</label>
               <div className="preset-grid">
@@ -192,34 +185,27 @@ const FocusTimer: React.FC = () => {
                   </button>
                 ))}
               </div>
-              {/* Custom work input */}
               <div className="custom-input-row">
-                <label className="input-label-sm">Custom (MM:SS)</label>
+                <label className="input-label-sm">Custom (minutes)</label>
                 <input
-                  type="text"
-                  defaultValue={formatTime(workDuration)}
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={Math.floor(workDuration / 60)}
                   className="custom-time-input"
-                  placeholder="MM:SS"
-                  onBlur={(e) => {
-                    const [m, s] = e.target.value.split(":").map(Number);
-                    const total = (m || 0) * 60 + (s || 0);
-                    if (total >= 60 && total <= 3600) {
-                      setWorkDuration(total);
-                      setTimeLeft(total);
-                    } else {
-                      e.target.value = formatTime(workDuration);
+                  onChange={(e) => {
+                    const mins = parseInt(e.target.value);
+                    if (mins >= 1 && mins <= 60) {
+                      setWorkDuration(mins * 60);
+                      setTimeLeft(mins * 60);
                     }
                   }}
                 />
               </div>
             </div>
 
-            {/* Break duration presets */}
             <div className="duration-section">
-              <label className="input-label">
-                <Coffee size={16} style={{ display: "inline", marginRight: 6 }} />
-                Break Duration
-              </label>
+              <label className="input-label">Break Duration</label>
               <div className="preset-grid">
                 {BREAK_PRESETS.map((p) => (
                   <button
@@ -231,9 +217,24 @@ const FocusTimer: React.FC = () => {
                   </button>
                 ))}
               </div>
+              <div className="custom-input-row">
+                <label className="input-label-sm">Custom (minutes)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={Math.floor(breakDuration / 60)}
+                  className="custom-time-input"
+                  onChange={(e) => {
+                    const mins = parseInt(e.target.value);
+                    if (mins >= 1 && mins <= 30) {
+                      setBreakDuration(mins * 60);
+                    }
+                  }}
+                />
+              </div>
             </div>
 
-            {/* Start button */}
             <button
               onClick={handleStart}
               className={`start-btn ${!task.trim() ? "start-btn--disabled" : ""}`}
@@ -247,40 +248,16 @@ const FocusTimer: React.FC = () => {
             )}
           </div>
         ) : (
-          // ─── ACTIVE TIMER VIEW ────────────────────────────────────────────
           <div className="timer-view">
-            {/* Phase badge */}
             <div className={`phase-badge ${onBreak ? "phase-badge--break" : "phase-badge--work"}`}>
-              {onBreak ? (
-                <>
-                  <Coffee size={16} style={{ marginRight: 6 }} /> Break Time
-                </>
-              ) : (
-                <>
-                  <span style={{ marginRight: 6 }}>🎯</span> Focus Mode
-                </>
-              )}
+              {onBreak ? "Break Time" : "Focus Mode"}
             </div>
 
-            {/* Task label */}
             <p className="active-task">{task}</p>
 
-            {/* Circular progress ring */}
             <div className="ring-container">
-              <svg
-                className="timer-svg"
-                viewBox="0 0 200 200"
-              >
-                {/* Background track */}
-                <circle
-                  cx="100"
-                  cy="100"
-                  r={radius}
-                  fill="none"
-                  stroke="#ffe4c6"
-                  strokeWidth="12"
-                />
-                {/* Progress arc */}
+              <svg className="timer-svg" viewBox="0 0 200 200">
+                <circle cx="100" cy="100" r={radius} fill="none" stroke="#ffe4c6" strokeWidth="12" />
                 <circle
                   cx="100"
                   cy="100"
@@ -294,46 +271,15 @@ const FocusTimer: React.FC = () => {
                   transform="rotate(-90 100 100)"
                   style={{ transition: "stroke-dashoffset 0.8s ease, stroke 0.5s ease" }}
                 />
-                {/* Time text */}
-                <text
-                  x="100"
-                  y="95"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  className="timer-text"
-                >
+                <text x="100" y="95" textAnchor="middle" dominantBaseline="middle" className="timer-text">
                   {formatTime(timeLeft)}
                 </text>
-                {/* Phase text below time */}
-                <text
-                  x="100"
-                  y="120"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  className="timer-subtext"
-                >
+                <text x="100" y="120" textAnchor="middle" dominantBaseline="middle" className="timer-subtext">
                   {onBreak ? "until break ends" : "remaining"}
                 </text>
               </svg>
             </div>
 
-            {/* Progress bar */}
-            <div className="progress-bar-container">
-              <div
-                className="progress-bar-fill"
-                style={{
-                  width: `${(1 - progress) * 100}%`,
-                  backgroundColor: onBreak ? "#4CAF50" : "#e9902c",
-                  transition: "width 0.8s ease, background-color 0.5s ease",
-                }}
-              />
-            </div>
-            <div className="progress-labels">
-              <span>0:00</span>
-              <span>{formatTime(totalDuration)}</span>
-            </div>
-
-            {/* Controls */}
             <div className="timer-controls">
               {isRunning ? (
                 <button onClick={handlePause} className="control-btn control-btn--secondary">
@@ -346,13 +292,8 @@ const FocusTimer: React.FC = () => {
                   Resume
                 </button>
               )}
-              <button onClick={handleReset} className="control-btn control-btn--danger">
-                <RotateCcw size={24} />
-                Reset
-              </button>
             </div>
 
-            {/* Break hint */}
             {!onBreak && (
               <p className="break-hint">
                 Break starts automatically after {formatTime(breakDuration)}
